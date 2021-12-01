@@ -1,0 +1,30 @@
+@import './icon.less';
+@import  './theme.less';
+// 火狐兼容 不要滚动条
+* {
+  scrollbar-width: thin; /* 滚动条宽度有三种：thin、auto、none */
+	scrollbar-color: transparent transparent;
+}
+// 谷歌兼容
+::-webkit-scrollbar {
+  width: 0.4rem;  /* 纵向滚动条滑块宽度 */
+  height: 0.25rem; /* 横向滚动条滑块宽度 */
+}
+::-webkit-scrollbar-track-piece { /*滚动条背景颜色*/
+  background: transparent;
+}
+::-webkit-scrollbar-track{
+	background: transparent;
+}
+::-webkit-scrollbar-thumb { /* 滑块 */
+  border-radius: .1rem;
+  background: #e5e5e5;
+	border-radius:10px;
+}
+// 也可以单独设置横向滚动条和纵向滚动条的背景颜色
+::-webkit-scrollbar-thumb:vertical { /* 纵向滑块 */
+  background: #e5e5e5;
+}
+::-webkit-scrollbar-thumb:horizontal { /* 横向滑块 */
+  background: #e5e5e5;
+}

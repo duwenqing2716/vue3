@@ -1,0 +1,191 @@
+一:
+层级混乱,未进行合理的布局规划组件层级
+
+二:
+使用事件总线进行兄弟组件通信,多次事件发射与接收,导致一系列的低性能优化操作
+增加代码量,多处v-show取代v-if,增加负荷,使用vuex代替保存数据在组件中传递
+
+三:
+ref与reactive使用界限不明确,不应该全使用reactive响应式数据或者ref类型数据
+
+四:
+当需要等待上一个请求结果传入下一个请求参数时,应使用sync与await配合,而不是通过watch进行上一个请求结果数据监听从而启动下一个数据请求操作以及promise函数回调
+
+五:
+在watch监听时不能进行防抖函数的引入,debounce.js,因为找不到上一个timer无法清空,导致出现延时多次点击未防抖
+解决方式一:
+例子:进入后立即执行清空操作
+watchEffect( (onDebounce) => {
+	let timer=getKeyWordList(props.searchText)
+	onDebounce( () => {
+		clearTimeout(timer)
+	})
+})
+解决方式二:
+例子:将timer放入响应式数据中保存以便下次清空或者执行
+const longPoll = () => {
+	if (state.timer) {
+		clearTimeout(state.timer)
+	}
+	// console.log('长轮询开始')
+	checkImage(state.unikey, Date.now()).then(res => {
+		if (res.code === 803) {
+			// console.log(res)
+			return state.userData = res.cookie
+		}
+		if (res.code === 800) {
+			isRefresh.value = true;
+			// console.log(res.message)
+			return
+		}
+		state.timer = setTimeout(() => {
+			longPoll()
+		}, 2000)
+	})
+}
+			
+六:
+vue3中一些功能在setup中使用需要引入并实例化，如路由,事件总线等等
+vue3 setup中顺序混乱  1.功能引入2.ref与reactive声明3.钩子函数4接口调用5其他事件处理函数6return所有
+
+七:
+未引入配置文件进行路径别名设置
+
+八:
+组件库全部引入效率低,应在main.js中按需引入
+
+九:
+事件总线与inject，provide
+二者传递多个参数时{a:xxx,b:xxx}
+传递多个属性时都是通过对象方式传递，如:事件总线，setItem，emit发射事件传参
+
+例子:
+两个必须写在外面 因为setup中有作用域且无this
+const internalInstance = getCurrentInstance();
+const $bus = internalInstance.appContext.config.globalProperties.$bus
+
+发射与接收可以写在方法和钩子函数中
+$bus.emit('myevent',{
+	cellphone:state.user.mobile,
+	pwd:state.user.password
+})
+
+$bus.on('myevent', val=> {
+	cellphone.value=val.cellphone
+	password.value=val.pwd
+})
+
+必须写在外面 因为setup中有作用域且无this
+const emitter = inject("emitter");
+
+发射与接收可以写在方法和钩子函数中 provide在main.js中 
+emitter.emit("myevent", state.count);
+
+emitter.on('myevent', value => {
+	cellphone.value = value
+})
+
+十:
+刷新当前项目三种方式
+1,location.reload
+2,this.$router.go(0)
+上面两种方式都是整体刷新,对使用体验有所影响，耗时长
+3,v-if将其销毁,通过nextTick在下一个生命周期执行创建，实现局部刷新
+例子:
+const onRefresh = () => {
+	state.isQRcode=false
+	nextTick(()=>{
+	  state.isQRcode=true
+	})
+	isRefresh.value = false;
+}
+
+十一:
+不加语法糖绑定则后方一直为String类型,后方为Object类型时需要加{},且在其中不能使用-类型连字符,采用驼峰写法代替
+例子:
+:overlay-style="{backgroundColor:'transparent',zIndex:'1'}"
+
+十二:
+v-if与v-show
+v-if性能更高，但无出现动画，让人感觉突兀出现
+v-show性能相对较低,提前渲染，但有入场动画
+
+十三:
+在组件中使用emit发射事件,有时候却未接收时应该用
+在发射组件中声明
+例子:
+emits:['changeColor'],进行声明
+
+十四:
+换肤系统实现:
+方法一:使用框架elementUI实现
+方法二:(不能够实现自定义动态添加肤色，且配置多套class样式复杂繁琐)为不同class名的主题设置不同套的肤色，判断是否点击其他肤色并:class绑定class类名动态添加其他肤色进行覆盖
+例子:
+.dance-music-light-header{}
+.dance-music-dark-header{}
+.dance-music-green-header{}
+方法三:
+在根中:root{}声明var(--mainColor)最初属性
+在组件中设置动态变量
+background-color: var(--mainColor);
+在点击换肤时，此处用的watch监听设置只做参考
+document.body.style.setProperty('--mainColor',newValue)
+
+十五:
+vue3路由 嵌套路由
+1.父路由 设置跳转 以及子路由
+例子:
+{
+	path:'/home',
+	name: 'home',
+	component:Home,
+	redirect:'/home/recommend',
+	children: [
+			{
+				path: '/home/recommend',
+				component:Footer
+			},
+			{
+				path: '/home/profile',
+				component: Article
+			}
+	]
+}
+2.还必须在父组件中设置切换的页面嵌套 否则不会显示
+例子:
+<div>
+	<Header @onThemeChange='onThemeChange'></Header>
+	<Aside :theme='state.theme'></Aside>
+	<router-view/>
+</div>
+
+十六:
+1. :root{}为最高级根 类似body
+2.登录页面 对于nickname昵称的设置，因为昵称不是固定值，因此在对待span标签中的{{nickname}}值时将span设置固定宽度,隐藏超出,以省略号代替
+例子:
+span{
+	display: inline-block;
+	width: 80px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+3.凡是设置变粗动态交互效果时,最好将其元素设置固定宽度以免影响其他元素波动,或者一般通过颜色加深,透明度大小在达到其效果
+例子:
+opcity:0.8 hover后设置为opcity:1
+
+十七:(后面更新会进行重新处理)
+登录页面最大问题:
+未设计好请求数据时机,与数据缓存机制,导致bug:在不同浏览器打开不会做到更新最新内容,而是上次设置过的数据
+原因:
+重新刷新打开页面未进行数据请求而是到本地进行数据获取
+本地数据并不是最新数据,而是上次存储的数据
+
+十八:
+高亮设置
+例子:
+在html标签中设置v-html='highlight(item.nickname)'进行解析
+const highlight = (str) => {
+	const reg = new RegExp(search.value,'gim')
+	return str.replaceAll(reg,`<span style='color:var(--mainColor)'>${search.value}</span>`)
+}

@@ -1,0 +1,391 @@
+一:
+排版问题:左侧文字对齐与右侧文本框对齐
+将所有div进行绝对定位,对于每一个div以及其中的元素进行单独设置margin-top值
+
+二:
+v-model与表单
+1. text,textarea => 直接进行一个v-model的双向绑定
+maxlength="300"设置最长字符数
+2. 单选框radio
+例子:v-model和value配合进行单选绑定
+<input type="radio" name='sex' value="0" v-model="radio">保密
+<input type="radio" name='sex' value="1" v-model="radio">男
+<input type="radio" name='sex' value="2" v-model="radio">女
+3. 下拉框select
+例子:v-model和value配合进行下拉选中绑定 :value绑定数据
+<select name="" id="" v-model="monthValue">
+	<option :value="index+1" v-for="(item,index) in 12">{{index+1}}月</option>
+</select>
+4. 提交文件file 属性multiple(可提交多个文件) 
+因为该标签样式不好修改设置因此通常设置hidden隐藏,点击button或者其他元素时将点击事件传给他
+例子:
+vue3因为在setup中设置了const file = ref(null) 获取input标签因此在button中可直接使用file.click()
+<button @click="file.click()">修改头像</button>
+<input type="file" ref='file' hidden="hidden" accept="image/*" @change="onFileChange">
+
+三:
+1. input file中的选择图片必须设置@change事件而不是@click事件,
+同时在获取完图片后必须files.value = ''清空value,防止相同文件不触发事件
+例子:
+2. window.URL.createObjectURL(files)获取图片的url信息,类似解码功能吧?
+3. 此处必须通过img.onload监听图片点击选中确认操作,否则将不能获取到该图片的任何信息img.naturalWidth/img.naturalHeight
+
+const onFileChange = () => {
+	let files = file.value.files[0]
+	let img = new Image();
+	img.src = window.URL.createObjectURL(files)
+	img.onload = function() {
+		if (img.naturalWidth < 320 || img.naturalHeight < 320) {
+			Toast({
+				message: '请选择分辨率超过320*320大小的图片',
+				position: 'top'
+			})
+			files.value = ''
+			return
+		}
+		imgSize.value = img.naturalWidth
+		previewImage.value = files
+		showPopup()
+	}
+}
+
+四:
+字符串截取
+str = str.slice(0, 2)
+for in遍历 i的值类型为String,这样遍历可获取设置对象中对应的键与值
+单纯for循环不能实现键值获取以及不规则键名设置
+例子:
+for (let i in areaList.city_list) {
+	if (i.slice(0, 2) == val) {
+		o[i] = areaList.city_list[i];
+	}
+}
+
+五:
+watch功能强大
+可实现多个数值监听,只要有一个发生变化,输出对应的数组[]
+监听ref与reactive
+vue3设计的一个缺点吧?只能针对ref,reactive object,array,function,因此监听reactive数据时
+需要如:()=>state.yearValue进行转化为reactive object类型
+1. 监听ref:
+例子:yearValue, monthValue为ref值
+watch([yearValue, monthValue], (newValue, oldValue) => {
+	var day = new Date(newValue[0], newValue[1], 0);
+	currentDay.value = day.getDate()
+})
+2. 监听reactive：
+例子:yearValue, monthValue为reactive值
+watch([()=>state.yearValue, ()=>state.monthValue], (newValue, oldValue) => {
+	var day = new Date(newValue[0], newValue[1], 0);
+	currentDay.value = day.getDate()
+})
+使用{immediate:true}进行立即执行,减去onMunted挂载再执行一遍的多余操作
+使用{deep:true}对于该值中的任一属性进行深度监听
+
+六:
+Cropper.js使用体会:
+1. 安装基本信息设置:
+npm或者yarn安装并将
+import Cropper from 'cropperjs'
+import 'cropperjs/dist/cropper.css'
+进行导入
+2. css设置:
+例子:
+<div class="before"></div>//预览区域
+<div class="container">//总宽高
+	<div class="img-container">//外层限制
+		<img :src="image" ref="photo" alt=""> //显示区域
+	</div>
+</div>
+3. setup中将cropper设置为null或者''
+例子:
+const cropper = ref(null);
+4. 使用获取并设置图片,获取img标签,第一个参数注意必须img标签或者canvas标签,并设置基本配置信息
+例子:
+const init = () => {
+	image.value = window.URL.createObjectURL(props.previewImage),
+	//在下一个周期进行渲染
+	nextTick(()=>{
+		cropper.value = new Cropper(photo.value, {
+			viewMode: 1,//cropper的视图模式
+			dragMode: 'none',//底部不可移动
+			initialAspectRatio: 1,
+			aspectRatio: 1,
+			preview: '.before,.biger',//预览区域
+			background: false,//背景透明或者显示底色
+			autoCropArea: 0.9,//选中区域大小
+			cropBoxResizable: false,//选中部分不可改变大小
+			zoomOnWheel: false,//不可使用鼠标滚轮
+		})
+	})
+}
+5. cropper.value中有各种属性可获取裁剪偏移数据,如:maxTop,maxLeft,top,left,width,height,
+naturalWidth,naturalHeight等等
+6. 两种情况前端处理发给后端存储,直接将数据将图片裁剪数据放与formData中让后端自行设置获取,formData中的imgFile为后端给的值
+例子:前端处理:
+const onGetCroppedCanvas = () => {
+	return new Promise( resolve => {
+		cropper.value.getCroppedCanvas().toBlob( blob => {
+			resolve(blob)
+		})
+	})
+}
+const file = await onGetCroppedCanvas()
+const formData = new FormData()			
+let fileData = file
+formData.append('imgFile', fileData)
+例子:后端处理:
+const formData = new FormData()			
+let fileData = props.previewImage
+formData.append('imgFile', fileData) 
+7. 关于图片裁剪类接口上传问题:
+传递方式 method: 'post',(看后端需求)
+设置后端给的消息头
+例子:
+headers: {
+	'Content-Type': 'multipart/form-data',
+},
+将formData传给data
+涉及登录,图片上传之类的加上timestamp时间戳防止缓存,将imgSize,imgX,imgY,timestamp
+等数据传给params(看后端是否有这个必传的需求)
+withCredentials: true//关键:跨域设置获取cookie请求头，否则将为null
+(登录调用接口后才有cookie,未登录则无cookie请求头,不能传输图片等信息,除非手动添加cookie值)
+
+七:
+接口处简写,选传数据,必传数据,默认数据以及data,headers,params共存处理
+默认数据参数最好写在最后 
+例子1: 前端接口直接
+const res = await updatedAvatar(imgSize.value,0,0,Date.now(),formData)使用
+
+export const updatedAvatar = (imgSize=300,imgX=0,imgY=0,timestamp,data) => {
+	return request({
+		method: 'post',
+		url:'/avatar/upload',
+		params:{
+			imgSize,
+			imgX,
+			imgY,
+			timestamp
+		},
+		headers: {
+		  'Content-Type': 'multipart/form-data',
+		},
+		data
+	})
+}
+例子2:
+前端手动传递:
+const repwd = await register({
+  phone:cellphone.value,
+  password:password.value,
+  captcha:verifyCode.value
+})
+
+export const register = params =>{
+	return request({
+		url:'/register/cellphone',
+		params
+	})
+}
+
+八:
+接收大量数据时最好将其存于数组中,数组方法更多更便于筛选等类型操作(find,some,forEach,filter,map...),
+在v-for in遍历数组时以及数据请求时，最好将要用到的数据进行整理,放于一个数组中,可以节约更多内存空间，无需
+多次重新开辟新常量进行存储,开辟多个常量维护起来非常麻烦，而且页面看起来很多很大
+层级划分功能:
+主组件最好将所有数据请求并发送到子组件,子组件只负责功能操作不负责数据请求(看具体情况而定)
+return数据理解
+在页面上需要的功能数据才return出去,因为setup为一个函数,函数内的数据不return出去是不能得到的,有自己独立的作用域
+
+九:
+日期格式化最好额外封装在一个js中,封装多种类型方法以便以后多次使用,或者使用comment等第三方插件库
+
+十:
+路由带参跳转
+1.push,replace
+push类似出入栈,无关路由路径
+replace不可回跳
+
+2.params与query
+(1). 不带参数:
+是'/'开始就是从根路由开始，如果开始不带'/'，则从当前路由开始。
+name,path都行, 建议用name 
+
+例子1:router-link中
+<router-link :to="{name:'home'}"> 
+<router-link :to="{path:'/home'}">
+
+例子2:router.push()中(vue3语境)
+router.push({name:'home'})
+router.push({path:'/home'})
+(2).带参数:
+例子1:query传参:
+传多个query的值或者值为动态参数需要{},单个可有可无
+router.push({name:'home',query: {id:'1'}})
+router.push({path:'/home',query: {id:'1'}})
+<router-link :to="{name:'home', query: {id:1}}"> 
+
+
+路由配置props接收传递参数问题:
+1.通过params传递的id,
+path: '/user/:id',
+直接props: true传递
+其他页面可直接通过props接收参数
+2.通过query传递的id,
+path: '/user',
+需要props: route => ({
+				id: route.query.id
+			})
+其他页面可直接通过props接收参数
+
+
+例子2:params传参:
+设置可传可不传:
+path:'/search/:keyword?'
+
+router.push({name:'home',params: {id:'1'}})  // 只能用 name
+<router-link :to="{name:'home', params: {id:1}}"> 
+不配置path ,第一次可请求,刷新页面id会消失,未指定占位:id
+配置path,刷新页面id会保留
+路由配置 path: "/home/:id" 或者 path: "/home:id" 
+
+query和params区别:
+query类似 get, 跳转之后页面 url后面会拼接参数,类似?id=1, 刷新页面id还在,非重要性的可以这样传, 密码之类还是用params
+params类似 post, 跳转之后页面 url后面不会拼接参数 , 但是刷新页面id 会消失
+
+十一:
+鼠标右键点击事件:
+例子:
+ @contextmenu.prevent="onDelete(item)"
+
+十二:
+css类操作:
+最多3行,超过则省略
+width: 800px;
+overflow: hidden;
+text-overflow: ellipsis;
+display: -webkit-box;
+-webkit-line-clamp: 3;
+-webkit-box-orient: vertical;
+
+用好伪类可以少写很多东西
+&::after
+&::before
+例子:
+&::after{
+	position: absolute;
+	content: '';
+	width: 12px;
+	height: 12px;
+	border: 2px solid black;
+	border-bottom-color:transparent ;
+	border-right-color:transparent ;
+	transform:translate(-50%,-50%) rotate(135deg);
+	margin-left: 20px;
+	margin-top: 16px;
+}	
+&:before{
+	position: absolute;
+	display:block;
+	top: 0; right: 0; bottom: 0; left: 0;
+	z-index:1;
+	border-radius:25px;
+	background:rgba(0,0,0,.1);
+}
+
+transform:translate(-50%,-50%)配合top:50%或者margin-top:50%打到居中对齐效果
+transform: rotate(180deg); 将图标旋转180度
+
+transition: all 0.3s ease-in 1s;设置延时出现时间
+&:hover .mv-show-top{
+	opacity: 1;
+	top: 0;
+	transition: all 0.3s ease-in 1s;
+}
+
+内阴影inset 默认outset外阴影
+box-shadow:0px 2px 5px black inset;
+
+flex处理换行 一行3个
+横排:x轴
+display: flex;
+flex-wrap: wrap;
+align-items: center;
+width: 33%;
+margin-bottom: 40px;
+justify-content: space-between;
+竖排只需加上限制高度:y轴
+height: 330px;
+flex-direction: column;
+
+
+
+
+
+未做:
+歌曲排序(选做)
+歌曲数量根据登录状态来变化(选做)
+回复表情缺失(选做)
+消息弹出层(需要案例数据,暂时不做)
+发送私信页(选做)
+vue3页面缓存(keep-alive) 4
+封装模块功能本地存储不同类型 2
+最近收听页面 3
+mv详情页面 5
+个人信息页并未完全完善
+如:
+1.增加正则匹配实现报错功能,
+2.介绍文本域响应式显示字数0/300,
+3.判断页面是否改动而进行提交按钮@click的渲染,
+4.取消按钮也是如此
+5.自定义下拉框样式设置
+
+vue关于深浅拷贝的思考:
+vue props传递值为基本数据类型时
+最好在子组件中computed进行接收或者开辟新内存进行存储
+vue props传递值为复杂类型数据时
+以上方法失效,不能进行深拷贝,会影响数据流动问题,vue为单向数据流,子组件更改父组件数据可能会导致数据流动混乱
+因此需要谨慎使用,最好深拷贝进行复制操作
+
+针对数组的方法:
+Array.slice()
+Array.concat()
+当然，也可以遍历数组赋值。
+局限性:
+但是以上两种只对单级结构(一维数组)的数组有效，如果数组的元素是一个引用类型(二维以上)，就不行了，比如：数组中
+嵌套数组或者对象,多层次
+
+针对对象的方法:
+Object.assign()
+局限性:
+大于二维同样失效
+
+真正实现浅拷贝方式:
+1.判断递归
+function deepClone(obj){
+    let objClone = Array.isArray(obj)?[]:{};
+    if(obj && typeof obj==="object"){
+        for(key in obj){
+            if(obj.hasOwnProperty(key)){
+                //判断ojb子元素是否为对象，如果是，递归复制
+                if(obj[key]&&typeof obj[key] ==="object"){
+                    objClone[key] = deepClone(obj[key]);
+                }else{
+                    //如果不是，简单复制
+                    objClone[key] = obj[key];
+                }
+            }
+        }
+    }
+    return objClone;
+} 
+
+2.jquery中的$.extend();
+由于jq使用较少不做深究
+
+3、JSON对象的JSON.parse()和JSON.stringify();编码并解码
+watch,computed监听数据传输过来后进行该操作
+var obj = {name:'xixi',age:20,company : { name : '腾讯', address : '深圳'} };
+var obj_json = JSON.parse(JSON.stringify(obj));
+
+拷贝后修改新数据的属性并不会触发vue的更新机制，需要强制更新$forceUpdate()
